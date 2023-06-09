@@ -54,7 +54,9 @@ class WithdrawController extends Controller
             
             $dateNow = date("Y-m-d");
             $dateReq = date('Y-m-d', strtotime($cashOutDate->date));
-            if ($dateNow == $dateReq) {
+            $beforeDateReq = date("Y-m-d", strtotime("-1 day", strtotime($cashOutDate->date)));
+
+            if ($dateNow == $dateReq || $dateNow == $beforeDateReq) {
                 return $this->returnCondition(false, 400, "we're sorry, update data not available right now");
             }
 

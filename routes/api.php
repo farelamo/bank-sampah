@@ -23,5 +23,5 @@ Route::middleware('auth.api')->group(function () {
     Route::get('cashout-date', [CashOutController::class, 'showCashOutDate']);
     Route::post('cashout-date', [CashOutController::class, 'cashOutDate']);
     Route::put('update-cashout-date', [CashOutController::class, 'updateCashOutDate']);
-
+    Route::put('photo_trx/{id}', [CashOutController::class, 'photoTrx']);
 });

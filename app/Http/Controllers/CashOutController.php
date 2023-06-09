@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CashOutDateRequest;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use App\Models\CashOutDate;
 use App\Models\CashOut;
@@ -81,6 +83,55 @@ class CashOutController extends Controller
 
             return $this->returnCondition(true, 200, 'Successfully update data');
         }catch(Exception $e){
+            return $this->returnCondition(false, 500, 'Internal server error');
+        }
+    }
+
+    public function photoTrx($id, Request $request)
+    {
+        $cashOut = CashOut::where('id', $id)->first();
+
+        if(!$cashOut){
+            return $this->returnCondition(false, 400, 'cash out with id ' . $id . ' not found');
+        }
+
+        if($cashOut->status == 'save'){
+            return $this->returnCondition(false, 400, 'Invalid status');
+        }
+
+        $rules = [
+            'trx_photo' => 'required|mimes:jpg,png,jpeg|max:5048',
+        ];
+
+        Validator::make($request->all(), $rules, $messages =
+            [
+                'trx_photo.required' => 'gambar harus diisi',
+                'trx_photo.mimes' => 'gambar harus berupa jpg, png atau jpeg',
+                'trx_photo.max' => 'maximum gambar adalah 5 MB',
+            ])->validate();
+
+        $imageOld = $cashOut->trx_photo;
+
+        try {
+
+            $imageFile = $request->file('trx_photo');
+            $image = time() . '-' . $imageFile->getClientOriginalName();
+            Storage::putFileAs('public/images', $imageFile, $image);
+
+            $cashOut->update([
+                'trx_photo' => $image,
+                
+            ]);
+
+            if (Storage::disk('local')->exists('public/images/' . $imageOld)) {
+                Storage::delete('public/images/' . $imageOld);
+            }
+
+            return $this->returnCondition(true, 200, 'Successfully updated data');
+        } catch (Exception $e) {
+            if (Storage::disk('local')->exists('public/images/' . $image)) {
+                Storage::delete('public/images/' . $image);
+            }
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }

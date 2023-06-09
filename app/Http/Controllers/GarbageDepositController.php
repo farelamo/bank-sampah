@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use DB;
 use Exception;
 use App\Models\User;
+use App\Models\CashOut;
 use App\Models\Garbage;
 use App\Models\CashOutDate;
 use Illuminate\Http\Request;
@@ -226,69 +228,30 @@ class GarbageDepositController extends Controller
         }
     }
 
-    // public function transaction(TransactionRequest $request)
-    // {
-
-    //     // try {
-
-    //     //     $nasabah = User::where('name', $request->nasabah)->first();
-    //     //     if (!$nasabah) {
-    //     //         return $this->returnCondition(false, 404, 'nasabah with name ' . $request->nasabah . ' not found');
-    //     //     }
-
-    //     //     if ($nasabah->role != 'nasabah') {
-    //     //         return $this->returnCondition(false, 422, 'Invalid nasabah role');
-    //     //     }
-
-    //     //     $deposit = GarbageDeposit::distinct()
-    //     //                     ->where('nasabah_id', $nasabah->id)
-    //     //                     ->whereBetween('date', [$request->start, $request->end])
-    //     //                     ->orderBy('date', 'desc')
-    //     //                     ->select('nasabah_id', 'date')
-    //     //                     ->paginate(5);
-
-    //     //     return new GarbageDepositCollection($deposit);
-    //     // } catch (Exception $e) {
-    //     //     return $this->returnCondition(false, 500, 'Internal server error');
-    //     // }
-    // }
-
-    public function transaction()
+    public function transaction(TransactionRequest $request)
     {
-        $users = User::select('id', 'name')->where('role', 'nasabah')->with(['cash_outs' => function($q){
-            $q->orderBy('date_transaction', 'desc');
-        }])->get();
 
-        $result = [];
-        foreach ($users as $user) {
-            
+        try {
 
-            if(is_null($user->cash_outs->first())){
-                // Get All then calculate all garbage deposit
-                // or group by then calculate it or using map
-
-                $deposits = GarbageDeposit::where('nasabah_id', $user->id)->get();
-                
-                $result[$user->name] = $deposits->map(function($d){
-                    return $d->weight * $d->price;
-                });
-
-                continue;
+            $nasabah = User::where('name', $request->nasabah)->first();
+            if (!$nasabah) {
+                return $this->returnCondition(false, 404, 'nasabah with name ' . $request->nasabah . ' not found');
             }
-            
-            $start = $user->cash_outs->first()->date_transaction;
-            $end   = CashOutDate::first()->date;
 
-            $deposits = GarbageDeposit::where('nasabah_id', $user->id)
-                                    ->where('date', '>', $start)
-                                    ->where('date', '<=', $end)
-                                    ->get();
+            if ($nasabah->role != 'nasabah') {
+                return $this->returnCondition(false, 422, 'Invalid nasabah role');
+            }
 
-            $result[$user->name] = $deposits->map(function ($d) {
-                return $d->weight * $d->price;
-            });
+            $deposit = GarbageDeposit::distinct()
+                            ->where('nasabah_id', $nasabah->id)
+                            ->whereBetween('date', [$request->start, $request->end])
+                            ->orderBy('date', 'desc')
+                            ->select('nasabah_id', 'date')
+                            ->paginate(5);
+
+            return new GarbageDepositCollection($deposit);
+        } catch (Exception $e) {
+            return $this->returnCondition(false, 500, 'Internal server error');
         }
-
-        return $result;
     }
 }
