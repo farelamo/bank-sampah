@@ -139,7 +139,7 @@ class CashOutJob implements ShouldQueue
 
             \DB::disableQueryLog();
 
-            CashOut::insert($inserts);
+             
         }catch(Exception $e){
             return $this->returnCondition(false, 500, 'Internal server error');
         }

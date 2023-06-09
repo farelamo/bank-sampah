@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
+    public function __construct() {
+        $this->middleware('superadminAdmin');
+    }
+
     public function returnCondition($condition, $errorCode, $message)
     {
         return response()->json([

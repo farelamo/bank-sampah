@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CashOutDateRequest;
+use App\Http\Resources\CashOutCollection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -13,6 +14,11 @@ use Exception;
 
 class CashOutController extends Controller
 {
+    public function __construct() {
+        $this->middleware('superadminAdmin')->except(['getCashOutMine', 'getPhotoTrx']);
+        $this->middleware('nasabah')->only(['getCashOutMine', 'getPhotoTrx']);
+    }
+
     public function returnCondition($condition, $errorCode, $message)
     {
         return response()->json([
@@ -115,7 +121,7 @@ class CashOutController extends Controller
         try {
 
             $imageFile = $request->file('trx_photo');
-            $image = time() . '-' . $imageFile->getClientOriginalName();
+            $image = time() . '.' . $imageFile->getClientOriginalExtension();
             Storage::putFileAs('public/images', $imageFile, $image);
 
             $cashOut->update([
@@ -132,6 +138,55 @@ class CashOutController extends Controller
             if (Storage::disk('local')->exists('public/images/' . $image)) {
                 Storage::delete('public/images/' . $image);
             }
+            return $this->returnCondition(false, 500, 'Internal server error');
+        }
+    }
+
+    public function getCashOut()
+    {
+        try {
+
+            $cashOuts = CashOut::select('id', 'date_transaction', 'user_id', 'cash_out', 'status')->get();
+            return new CashOutCollection($cashOuts);
+        }catch(\Exception $e){
+            return $this->returnCondition(false, 500, 'Internal server error');
+        }
+    }
+
+    public function getCashOutMine()
+    {
+        try {
+
+            if(auth()->user()->role != 'nasabah'){
+                return $this->returnCondition(false, 400, 'Invalid role access');
+            }
+            
+            $cashOuts = CashOut::where('user_id', auth()->user()->id)->get();
+            return new CashOutCollection($cashOuts);
+        }catch(\Exception $e){
+            return $this->returnCondition(false, 500, 'Internal server error');
+        }
+    }
+
+    public function getPhotoTrx($id) {
+        try {
+
+            $cashout = Cashout::where('id', $id)->first();
+            if(!$cashout){
+                return $this->returnCondition(false, 404, 'data with id ' . $id . ' not found'); 
+            }
+
+            if (!$cashout->trx_photo) {
+                return $this->returnCondition(false, 404, 'data with id ' . $id . ' doesnt have trx photo');
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'image_url' => env('APP_URL') . 'storage/images/' . $cashout->trx_photo
+                ]
+            ]);
+        }catch(\Exception $e){
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }

@@ -20,8 +20,14 @@ Route::middleware('auth.api')->group(function () {
     Route::get('transaction', [GarbageDepositController::class, 'transaction']);
 
     Route::resource('withdraw', WithdrawController::class)->only(['show', 'update']);
+    
     Route::get('cashout-date', [CashOutController::class, 'showCashOutDate']);
     Route::post('cashout-date', [CashOutController::class, 'cashOutDate']);
     Route::put('update-cashout-date', [CashOutController::class, 'updateCashOutDate']);
+
     Route::put('photo_trx/{id}', [CashOutController::class, 'photoTrx']);
+    Route::get('photo_trx/{id}', [CashOutController::class, 'getPhotoTrx']);
+
+    Route::get('cashout', [CashOutController::class, 'getCashOutMine']);
+    Route::get('cashout-admin', [CashOutController::class, 'getCashOut']);
 });

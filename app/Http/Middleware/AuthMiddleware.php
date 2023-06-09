@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use JWTAuth;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,14 +26,15 @@ class AuthMiddleware extends BaseMiddleware
             $user = JWTAuth::parseToken()->authenticate();
 
         } catch (Exception $e) {
-            if ($e instanceof \Tymon\JWTAuth\Exceptions\TokenInvalidException){
+            if ($e instanceof \Tymon\JWTAuth\Exceptions\TokenInvalidException ) {
                 return $this->returnCondition(false, 401, 'Token is Invalid');
-            }else if ($e instanceof \Tymon\JWTAuth\Exceptions\TokenExpiredException){
+            } else if ($e instanceof \Tymon\JWTAuth\Exceptions\TokenExpiredException ) {
                 return $this->returnCondition(false, 401, 'Token is Expired');
-            }else{
+            } else {
                 return $this->returnCondition(false, 401, 'Token not found');
             }
         }
         return $next($request);
+
     }
 }

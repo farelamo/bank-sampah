@@ -12,6 +12,10 @@ use Exception;
 
 class WithdrawController extends Controller
 {
+    public function __construct() {
+        $this->middleware('nasabah');
+    }
+
     public function returnCondition($condition, $errorCode, $message)
     {
         return response()->json([

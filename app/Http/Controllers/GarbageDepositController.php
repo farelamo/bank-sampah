@@ -18,6 +18,10 @@ use App\Http\Resources\GarbageDepositShowCollection;
 
 class GarbageDepositController extends Controller
 {
+    public function __construct() {
+        $this->middleware('superadminAdmin')->except(['transaction', 'show']);
+    }
+
     public function returnCondition($condition, $errorCode, $message)
     {
         return response()->json([

@@ -10,6 +10,10 @@ use App\Http\Resources\GarbageCollection;
 
 class GarbageController extends Controller
 {
+    public function __construct() {
+        $this->middleware('superadminAdmin')->except(['index']);
+    }
+
     public function returnCondition($condition, $errorCode, $message)
     {
         return response()->json([
