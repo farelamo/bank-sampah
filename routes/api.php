@@ -1,13 +1,12 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\GarbageController;
 use App\Http\Controllers\CashOutController;
-use App\Http\Controllers\WithdrawController;
+use App\Http\Controllers\GarbageController;
 use App\Http\Controllers\GarbageDepositController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WithdrawController;
+use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login']);
 Route::post('logout', [AuthController::class, 'logout']);
@@ -19,7 +18,8 @@ Route::middleware('auth.api')->group(function () {
     Route::resource('deposit', GarbageDepositController::class)->except(['create', 'edit']);
     Route::get('transaction', [GarbageDepositController::class, 'transaction']);
 
-    Route::resource('withdraw', WithdrawController::class)->only(['show', 'update']);
+    Route::get('withdraw', [WithdrawController::class, 'show']);
+    Route::put('withdraw-update', [WithdrawController::class, 'update']);
 
     Route::get('cashout-date', [CashOutController::class, 'showCashOutDate']);
     Route::post('cashout-date', [CashOutController::class, 'cashOutDate']);

@@ -24,11 +24,11 @@ class WithdrawController extends Controller
         ], $errorCode);
     }
 
-    public function show($id)
+    public function show()
     {
-        $nasabah = User::where('id', $id)->first();
+        $nasabah = User::where('id', auth()->user()->id)->first();
         if (!$nasabah) {
-            return $this->returnCondition(false, 404, 'nasabah with id ' . $id . ' not found');
+            return $this->returnCondition(false, 404, 'nasabah not found');
         }
 
         if ($nasabah->role != 'nasabah') {
@@ -38,13 +38,13 @@ class WithdrawController extends Controller
         return new WithdrawResource($nasabah);
     }
 
-    public function update($id, WithdrawRequest $request)
+    public function update(WithdrawRequest $request)
     {
         try {
     
-            $nasabah = User::where('id', $id)->first();
+            $nasabah = User::where('id', auth()->user()->id)->first();
             if (!$nasabah) {
-                return $this->returnCondition(false, 404, 'nasabah with id ' . $id . ' not found');
+                return $this->returnCondition(false, 404, 'nasabah not found');
             }
 
             if ($nasabah->role != 'nasabah') {
