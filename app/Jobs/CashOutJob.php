@@ -133,13 +133,13 @@ class CashOutJob implements ShouldQueue
             $ids = implode(',', $ids);
             $cases = implode(' ', $cases);
 
+            CashOut::insert($inserts);
+
             if (!empty($ids)) {
                 \DB::update("UPDATE `users` SET `balance` = CASE `id` {$cases} END WHERE `id` in ({$ids})", $params);
             }
 
             \DB::disableQueryLog();
-
-             
         }catch(Exception $e){
             return $this->returnCondition(false, 500, 'Internal server error');
         }
