@@ -13,12 +13,14 @@ use App\Models\GarbageDeposit;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Requests\TransactionRequest;
 use App\Http\Requests\GarbageDepositRequest;
+use Illuminate\Validation\ValidationException;
 use App\Http\Resources\GarbageDepositCollection;
 use App\Http\Resources\GarbageDepositShowCollection;
 
 class GarbageDepositController extends Controller
 {
-    public function __construct() {
+    public function __construct()
+    {
         $this->middleware('superadminAdmin')->except(['transaction', 'show']);
     }
 
@@ -33,36 +35,37 @@ class GarbageDepositController extends Controller
     public function index(Request $request)
     {
         try {
+            $nasabah = null;
 
-            if ($request->nasabah) :
-                $nasabah = User::where('name', $request->nasabah)->first();
+            if ($request->has('nasabah')) {
+                $nasabah = User::where('name', 'like', '%' . $request->input('nasabah') . '%')->first();
+
                 if (!$nasabah) {
-                    return $this->returnCondition(false, 404, 'nasabah with name ' . $request->nasabah . ' not found');
+                    return $this->returnCondition(false, 404, 'Nasabah with name "' . $request->input('nasabah') . '" not found');
                 }
 
                 if ($nasabah->role != 'nasabah') {
                     return $this->returnCondition(false, 422, 'Invalid nasabah role');
                 }
-            endif;
+            }
 
-            $data = $nasabah ?? 0;
-            $deposit = GarbageDeposit::distinct()
-                            ->when($request->nasabah, function ($e) use($data) {
-                                $e->where('nasabah_id', $data->id);
-                            })
-                            ->orderBy('date', 'desc')
-                            ->select('nasabah_id', 'date')
-                            ->paginate(5);
+            $deposit = GarbageDeposit::when($nasabah, function ($query) use ($nasabah) {
+                $query->where('nasabah_id', $nasabah->id);
+            })
+                ->orderBy('date', 'desc')
+                ->select('nasabah_id', 'date')
+                ->paginate(5);
 
             return new GarbageDepositCollection($deposit);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
 
+
     public function show($id, Request $request)
     {
-        if(!$request->date){
+        if (!$request->date) {
             return $this->returnCondition(false, 400, 'date must be filled');
         }
 
@@ -76,7 +79,7 @@ class GarbageDepositController extends Controller
         }
 
         $deposit = GarbageDeposit::where('nasabah_id', $id)->where('date', $request->date)->get();
-        if(empty($deposit->toArray())) return $this->returnCondition(false, 404, 'record not found');
+        if (empty($deposit->toArray())) return $this->returnCondition(false, 404, 'record not found');
 
         return new GarbageDepositShowCollection($deposit);
     }
@@ -116,25 +119,25 @@ class GarbageDepositController extends Controller
     {
         $result = [];
 
-        $old = $update ? $data->garbage_deposits()->where('date', $date)->get()->map(function($e) {
-                    return $e->garbage_id;
-                })->toArray() : [];
+        $old = $update ? $data->garbage_deposits()->where('date', $date)->get()->map(function ($e) {
+            return $e->garbage_id;
+        })->toArray() : [];
 
         $garbageId = $update ? array_column($request, 'garbage_id') : [];
         $detachOld = $update ? array_diff($old, $garbageId) : [];
         $attachNew = $update ? array_diff($garbageId, $old) : [];
 
-        if($detachOld){
+        if ($detachOld) {
             $result['detach'] = $detachOld;
         }
 
         foreach ($request as $deposit) {
-            if(!$update):
+            if (!$update) :
                 $this->handleResult($result, $deposit, $date);
             endif;
 
-            if($update):
-                if(in_array($deposit['garbage_id'], $attachNew)){
+            if ($update) :
+                if (in_array($deposit['garbage_id'], $attachNew)) {
                     $this->handleResult($result, $deposit, $date);
                 }
             endif;
@@ -145,7 +148,7 @@ class GarbageDepositController extends Controller
 
     public function store(GarbageDepositRequest $request)
     {
-        if(!$request->nasabah_id){
+        if (!$request->nasabah_id) {
             return $this->returnCondition(false, 400, 'nasabah_id must be filled');
         }
 
@@ -162,10 +165,12 @@ class GarbageDepositController extends Controller
 
         try {
             $nasabah->garbages()->attach($this->handleDeposit($request->deposit, $request->date, null)['attach']);
-            
+
             return $this->returnCondition(true, 200, 'Successfully created data');
-        }catch(Exception $e){
-            return $this->returnCondition(false,500, 'Internal server error');
+        } catch (ValidationException $th) {
+            return $th->validator->errors();
+        } catch (Exception $e) {
+            return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
 
@@ -182,10 +187,10 @@ class GarbageDepositController extends Controller
         }
 
         $check = $nasabah->garbages()->wherePivot('nasabah_id', $nasabah->id)
-                         ->wherePivot('date', $request->date)
-                         ->get();
-                         
-        if(empty($check->toArray())){
+            ->wherePivot('date', $request->date)
+            ->get();
+
+        if (empty($check->toArray())) {
             return $this->returnCondition(false, 404, 'deposit with id ' . $nasabah->id . ' on date ' . $request->date . ' not found');
         }
 
@@ -194,11 +199,11 @@ class GarbageDepositController extends Controller
         try {
 
             $result = $this->handleDeposit($request->deposit, $request->date, $nasabah, true);
-            if(array_key_exists('attach', $result)) $nasabah->garbages()->attach($result['attach']);
-            if(array_key_exists('detach', $result)) $nasabah->garbages()->detach($result['detach']);
+            if (array_key_exists('attach', $result)) $nasabah->garbages()->attach($result['attach']);
+            if (array_key_exists('detach', $result)) $nasabah->garbages()->detach($result['detach']);
 
             return $this->returnCondition(true, 200, 'Successfully update data');
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
@@ -220,22 +225,49 @@ class GarbageDepositController extends Controller
                 return $this->returnCondition(false, 422, 'Invalid nasabah role');
             }
 
-            if(empty($nasabah->garbages()->wherePivot('date', $request->date)->get()->toArray())){
+            if (empty($nasabah->garbages()->wherePivot('date', $request->date)->get()->toArray())) {
                 return $this->returnCondition(false, 404, 'Deposit with id ' . $id . ' on date ' . $request->date . ' not found');
             }
 
             $nasabah->garbages()->wherePivot('date', $request->date)->detach();
 
             return $this->returnCondition(true, 200, 'Successfully deleted data');
-        }catch(Exception $e){
-            return $this->returnCondition(false,500, 'Internal server error');
+        } catch (Exception $e) {
+            return $this->returnCondition(false, 500, 'Internal server error');
         }
+    }
+
+    public function checkNasabah($request)
+    {
+        $rules = [
+            'nasabah' => 'required|exists:users,name',
+        ];
+
+        Validator::make($request->all(), $rules, $messages =
+            [
+                'nasabah.required' => 'nasabah must be filled',
+                'nasabah.exists' => "nasabah doesn't exists",
+            ])->validate();
     }
 
     public function transaction(TransactionRequest $request)
     {
-
         try {
+
+            if (auth()->user()->role == 'nasabah') {
+                $deposit = GarbageDeposit::distinct()
+                    ->where('nasabah_id', auth()->user()->id)
+                    ->whereBetween('date', [$request->start, $request->end])
+                    ->orderBy('date', 'desc')
+                    ->select('nasabah_id', 'date')
+                    ->paginate(5);
+
+                return new GarbageDepositCollection($deposit);
+            }
+
+            if (auth()->user()->role != 'nasabah') {
+                $this->checkNasabah($request);
+            }
 
             $nasabah = User::where('name', $request->nasabah)->first();
             if (!$nasabah) {
@@ -247,13 +279,15 @@ class GarbageDepositController extends Controller
             }
 
             $deposit = GarbageDeposit::distinct()
-                            ->where('nasabah_id', $nasabah->id)
-                            ->whereBetween('date', [$request->start, $request->end])
-                            ->orderBy('date', 'desc')
-                            ->select('nasabah_id', 'date')
-                            ->paginate(5);
+                ->where('nasabah_id', $nasabah->id)
+                ->whereBetween('date', [$request->start, $request->end])
+                ->orderBy('date', 'desc')
+                ->select('nasabah_id', 'date')
+                ->paginate(5);
 
             return new GarbageDepositCollection($deposit);
+        } catch (ValidationException $th) {
+            return $th->validator->errors();
         } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }

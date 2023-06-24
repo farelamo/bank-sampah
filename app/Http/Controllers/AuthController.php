@@ -45,6 +45,20 @@ class AuthController extends Controller
         }
     }
 
+    public function me()
+    {
+        try {
+
+            return response()->json([
+                'success' => true,
+                'data'    => auth()->user(),
+            ], 200);
+        } catch (Exception $e) {
+            return $this->returnCondition(false, 500, 'Internal Server Error');
+        }
+    }
+
+
     public function logout()
     {
         try {

@@ -14,9 +14,10 @@ use Exception;
 
 class CashOutController extends Controller
 {
-    public function __construct() {
-        $this->middleware('superadminAdmin')->except(['getCashOutMine', 'getPhotoTrx']);
-        $this->middleware('nasabah')->only(['getCashOutMine', 'getPhotoTrx']);
+    public function __construct()
+    {
+        $this->middleware('superadminAdmin')->except(['getCashOutMine', 'showCashOutDate', 'getPhotoTrx']);
+        $this->middleware('nasabah')->only(['getCashOutMine', 'showCashOutDate', 'getPhotoTrx']);
     }
 
     public function returnCondition($condition, $errorCode, $message)
@@ -25,14 +26,14 @@ class CashOutController extends Controller
             'success' => $condition,
             'message' => $message,
         ], $errorCode);
-    } 
+    }
 
     public function showCashOutDate()
     {
         try {
 
             $data = CashOutDate::first();
-            if(!$data){
+            if (!$data) {
                 return $this->returnCondition(false, 404, 'data not found');
             }
 
@@ -42,7 +43,7 @@ class CashOutController extends Controller
                     'date' => $data->date,
                 ],
             ], 200);
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
@@ -53,19 +54,19 @@ class CashOutController extends Controller
 
             $dateNow = date("Y-m-d");
             $dateReq = date('Y-m-d', strtotime($request->date));
-            if($dateReq < $dateNow){
+            if ($dateReq < $dateNow) {
                 return $this->returnCondition(false, 400, 'Date must be greater or equal than date now');
             }
 
             $check = CashOutDate::count();
-            if($check >= 1){
+            if ($check >= 1) {
                 return $this->returnCondition(false, 400, 'sorry, data has reach the limit, please update old data');
             }
 
             CashOutDate::create(['date' => $request->date]);
 
             return $this->returnCondition(true, 200, 'Successfully create data');
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
@@ -75,7 +76,7 @@ class CashOutController extends Controller
         try {
 
             $data = CashOutDate::first();
-            if(!$data){
+            if (!$data) {
                 return $this->returnCondition(false, 400, 'There is no data, please create first');
             }
 
@@ -88,7 +89,7 @@ class CashOutController extends Controller
             $data->update(['date' => $request->date]);
 
             return $this->returnCondition(true, 200, 'Successfully update data');
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
@@ -97,11 +98,11 @@ class CashOutController extends Controller
     {
         $cashOut = CashOut::where('id', $id)->first();
 
-        if(!$cashOut){
+        if (!$cashOut) {
             return $this->returnCondition(false, 400, 'cash out with id ' . $id . ' not found');
         }
 
-        if($cashOut->status == 'save'){
+        if ($cashOut->status == 'save') {
             return $this->returnCondition(false, 400, 'Invalid status');
         }
 
@@ -126,7 +127,7 @@ class CashOutController extends Controller
 
             $cashOut->update([
                 'trx_photo' => $image,
-                
+
             ]);
 
             if (Storage::disk('local')->exists('public/images/' . $imageOld)) {
@@ -148,7 +149,7 @@ class CashOutController extends Controller
 
             $cashOuts = CashOut::select('id', 'date_transaction', 'user_id', 'cash_out', 'status')->get();
             return new CashOutCollection($cashOuts);
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
@@ -157,23 +158,24 @@ class CashOutController extends Controller
     {
         try {
 
-            if(auth()->user()->role != 'nasabah'){
+            if (auth()->user()->role != 'nasabah') {
                 return $this->returnCondition(false, 400, 'Invalid role access');
             }
-            
+
             $cashOuts = CashOut::where('user_id', auth()->user()->id)->get();
             return new CashOutCollection($cashOuts);
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
 
-    public function getPhotoTrx($id) {
+    public function getPhotoTrx($id)
+    {
         try {
 
             $cashout = Cashout::where('id', $id)->first();
-            if(!$cashout){
-                return $this->returnCondition(false, 404, 'data with id ' . $id . ' not found'); 
+            if (!$cashout) {
+                return $this->returnCondition(false, 404, 'data with id ' . $id . ' not found');
             }
 
             if (!$cashout->trx_photo) {
@@ -186,7 +188,7 @@ class CashOutController extends Controller
                     'image_url' => env('APP_URL') . 'storage/images/' . $cashout->trx_photo
                 ]
             ]);
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');
         }
     }
