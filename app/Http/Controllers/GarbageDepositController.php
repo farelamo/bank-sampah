@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use DB;
+use Log;
 use Exception;
+use Carbon\Carbon;
 use App\Models\User;
 use App\Models\CashOut;
 use App\Models\Garbage;
@@ -250,14 +252,38 @@ class GarbageDepositController extends Controller
             ])->validate();
     }
 
+    public function checkEndDate($request) {
+        $rules = [
+            'end' => 'date|date_format:Y-m-d|after_or_equal:start',
+        ];
+
+        Validator::make($request->all(), $rules, $messages =
+            [
+                'end.date_format' => 'invalid end date format',
+                'end.after_or_equal' => 'end date must be greater than or equal with start date ',
+                'end.date' => 'invalid end date',
+            ])->validate();
+    }
+
     public function transaction(TransactionRequest $request)
     {
         try {
 
+            if($request->end) {
+                $this->checkEndDate($request);
+            }
+
+            $today = Carbon::now()->format('Y-m-d');
+
             if (auth()->user()->role == 'nasabah') {
                 $deposit = GarbageDeposit::distinct()
                     ->where('nasabah_id', auth()->user()->id)
-                    ->whereBetween('date', [$request->start, $request->end])
+                    ->when($request->end, function($q) use ($request){
+                        return $q->whereBetween('date', [$request->start, $request->end]);
+                    })
+                    ->when(!$request->end, function($q) use ($request, $today){
+                        return $q->whereBetween('date', [$request->start, $today]);
+                    })
                     ->orderBy('date', 'desc')
                     ->select('nasabah_id', 'date')
                     ->paginate(5);
@@ -280,7 +306,12 @@ class GarbageDepositController extends Controller
 
             $deposit = GarbageDeposit::distinct()
                 ->where('nasabah_id', $nasabah->id)
-                ->whereBetween('date', [$request->start, $request->end])
+                ->when($request->end, function($q) use ($request){
+                    return $q->whereBetween('date', [$request->start, $request->end]);
+                })
+                ->when(!$request->end, function($q) use ($request, $today){
+                    return $q->whereBetween('date', [$request->start, $today]);
+                })
                 ->orderBy('date', 'desc')
                 ->select('nasabah_id', 'date')
                 ->paginate(5);

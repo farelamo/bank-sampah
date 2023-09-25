@@ -9,4 +9,12 @@ use Illuminate\Routing\Controller as BaseController;
 class Controller extends BaseController
 {
     use AuthorizesRequests, ValidatesRequests;
+
+    public function returnCondition($condition, $errorCode, $message)
+    {
+        return response()->json([
+            'success' => $condition,
+            'message' => $message,
+        ], $errorCode);
+    }
 }

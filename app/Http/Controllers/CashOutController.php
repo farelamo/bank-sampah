@@ -147,7 +147,7 @@ class CashOutController extends Controller
     {
         try {
 
-            $cashOuts = CashOut::select('id', 'date_transaction', 'user_id', 'cash_out', 'status')->get();
+            $cashOuts = CashOut::select('id', 'date_transaction', 'user_id', 'cash_out', 'status', 'trx_photo')->get();
             return new CashOutCollection($cashOuts);
         } catch (\Exception $e) {
             return $this->returnCondition(false, 500, 'Internal server error');

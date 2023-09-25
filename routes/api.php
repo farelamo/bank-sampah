@@ -5,6 +5,7 @@ use App\Http\Controllers\CashOutController;
 use App\Http\Controllers\GarbageController;
 use App\Http\Controllers\GarbageDepositController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WithdrawController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,4 +31,8 @@ Route::middleware('auth.api')->group(function () {
 
     Route::get('cashout', [CashOutController::class, 'getCashOutMine']);
     Route::get('cashout-admin', [CashOutController::class, 'getCashOut']);
+
+    Route::post('upload_data_trx', [UploadController::class, 'data_trx']);
+    Route::post('upload_nasabah', [UploadController::class, 'data_nasabah']);
+    Route::post('upload_data_sampah', [UploadController::class, 'data_sampah']);
 });

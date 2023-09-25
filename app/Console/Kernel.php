@@ -2,6 +2,8 @@
 
 namespace App\Console;
 
+use Log;
+use Carbon\Carbon;
 use App\Jobs\CashOutJob;
 use App\Models\CashOutDate;
 use App\Console\Commands\CashOutCommands;
@@ -13,7 +15,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('app:cashout')
-                ->dailyAt('22:17')
+                // ->dailyAt('16:05')
                 ->timezone('Asia/Jakarta')
                 ->when(function () {
                     $datePick = CashOutDate::first()->date;
@@ -21,12 +23,16 @@ class Kernel extends ConsoleKernel
                         return false;
                     }
 
-                    $dateNow = date("Y-m-d");
-                    $datePick = date('Y-m-d', strtotime($datePick));
-                    if ($dateNow == $datePick) {
+                    
+                    $dateNow  = Carbon::now()->setTime(0, 0, 0);
+                    $datePick = new Carbon($datePick);
+                    $diff     = $dateNow->diff($datePick)->days;
+                    if ($diff <= 1) {
+                        Log::info('MASUK');
                         return true;
                     }
-
+                    Log::info('KELUAR');
+                    
                     return false;
                 });
     }

@@ -18,6 +18,7 @@ class CashOutCollection extends ResourceCollection
                     'date_transaction' => $data->date_transaction,
                     'cash_out' => $data->cash_out,
                     'status' => $data->status,
+                    'trx_photo' => $data->trx_photo,
                 ];
             })
         ];

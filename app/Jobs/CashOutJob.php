@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use DB;
+use Log;
 use Exception;
 use App\Models\User;
 use App\Models\CashOut;
@@ -29,50 +30,52 @@ class CashOutJob implements ShouldQueue
     public function handleQueryUpdate(&$user, &$result, &$cashOutDate, &$inserts, &$params, &$ids, &$cases)
     {
         try {
+            if (array_key_exists($user->id, $result)) {
+                
+                $cases[] = "WHEN {$user->id} then ?";
+                $ids[]   = $user->id;
 
-            $cases[] = "WHEN {$user->id} then ?";
-            $ids[] = $user->id;
+                // if user has with draw relation
+                if ($user->withdraw) {
+                    // if user has withdraws with status tf/manual
+                    if ($user->withdraw->type != 'save') {
+                        $calculate = ($user->balance + $result[$user->id]) - $user->withdraw->cash_out;
+                        $params[]  = $calculate < 0 ? 0 : $calculate; // if user cashout more than balance + result
+                        $inserts[] = [
+                            'user_id' => $user->id,
+                            'status' => $user->withdraw->type,
+                            'date_transaction' => $cashOutDate,
+                            'cash_out' => $calculate < 0 ?
+                                            $user->withdraw->cash_out + $calculate : // use + caused $calculate retrieve is - (negative)
+                                            $user->withdraw->cash_out,
+                        ];
 
-            // if user has with draw relation
-            if ($user->withdraw) {
-                // if user has withdraws with status tf/manual
-                if ($user->withdraw->type != 'save') {
-                    $calculate = ($user->balance + $result[$user->id]) - $user->withdraw->cash_out;
-                    $params[] = $calculate < 0 ? 0 : $calculate; // if user cashout more than balance + result
+                        return;
+                    }
+
+                    // if user who has withdraw with save type
+                    $params[] = $user->balance + $result[$user->id];
                     $inserts[] = [
                         'user_id' => $user->id,
-                        'status' => $user->withdraw->type,
+                        'status' => 'save',
                         'date_transaction' => $cashOutDate,
-                        'cash_out' => $calculate < 0 ?
-                                        $user->withdraw->cash_out + $calculate : // use + caused $calculate retrieve is - (negative)
-                                        $user->withdraw->cash_out,
+                        'cash_out' => 0,
                     ];
 
                     return;
                 }
 
-                // if user who has withdraw with save type
-                $params[] = $user->balance + $result[$user->id];
+                // if user has not withdraw (save status automatically)
+                $params[]  = $user->balance + $result[$user->id];
                 $inserts[] = [
                     'user_id' => $user->id,
                     'status' => 'save',
                     'date_transaction' => $cashOutDate,
                     'cash_out' => 0,
                 ];
-
-                return;
             }
-
-            // if user has not withdraw (save status automatically)
-            $params[] = $user->balance + $result[$user->id];
-            $inserts[] = [
-                'user_id' => $user->id,
-                'status' => 'save',
-                'date_transaction' => $cashOutDate,
-                'cash_out' => 0,
-            ];
         }catch(Exception $e){
-            return $this->returnCondition(false, 500, 'Internal server error');
+            return $this->returnCondition(false, 500, 'Internal Server Error');
         }
     }
 
@@ -88,7 +91,7 @@ class CashOutJob implements ShouldQueue
             $users = User::select('id', 'name', 'balance')->where('role', 'nasabah')->with(['cash_outs' => function ($q) {
                 $q->orderBy('date_transaction', 'desc');
             }])->get();
-
+            
             $cashOutDate = CashOutDate::first()->date;
 
             $result = [];
@@ -102,36 +105,36 @@ class CashOutJob implements ShouldQueue
 
                     $deposits->map(function ($d) use (&$user, &$result) {
                         if (array_key_exists($user->id, $result)) {
-                            return $result[$user->id] += $d->weight * $d->price;
+                            return $result[$user->id] += $d->weight * $d->price * 0.6;
                         }
 
-                        $result[$user->id] = $d->weight * $d->price;
+                        $result[$user->id] = $d->weight * $d->price * 0.6;
                     });
 
                     $this->handleQueryUpdate($user, $result, $cashOutDate, $inserts, $params, $ids, $cases);
                     continue;
                 }
 
-                $start = $user->cash_outs->first()->date_transaction;
-
+                $start    = $user->cash_outs->first()->date_transaction;
                 $deposits = GarbageDeposit::where('nasabah_id', $user->id)
-                    ->where('date', '>', $start)
+                    ->where('date', '>=', $start)
                     ->where('date', '<=', $cashOutDate)
                     ->get();
-
+                Log::info($deposits);
                 $deposits->map(function ($d) use (&$user, &$result) {
                     if (array_key_exists($user->id, $result)) {
-                        return $result[$user->id] += $d->weight * $d->price;
+                        return $result[$user->id] += $d->weight * $d->price * 0.6;
                     }
 
-                    $result[$user->id] = $d->weight * $d->price;
+                    $result[$user->id] = $d->weight * $d->price * 0.6;
                 });
 
-                $this->handleQueryUpdate($user, $result, $cashOutDate, $inserts, $params, $ids, $cases);
+                $data = $this->handleQueryUpdate($user, $result, $cashOutDate, $inserts, $params, $ids, $cases);
             }
 
-            $ids = implode(',', $ids);
+            $ids   = implode(',', $ids);
             $cases = implode(' ', $cases);
+            // Log::info($params);
 
             CashOut::insert($inserts);
 
